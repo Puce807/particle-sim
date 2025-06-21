@@ -1,10 +1,11 @@
 import pygame
 import random
 import math
+from physics import *
 
 pygame.init()
 
-version = "1.1.0"
+version = "1.2.0"
 
 scale = 1
 
@@ -15,13 +16,16 @@ SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
 FPS = 30
 dt = clock.tick(FPS) / 1000
-sim_speed = 20
+sim_speed = 15
 dt *= sim_speed
 
 gravity_x = 0
-gravity_y = 1
+gravity_y = 0
+grav_constant = 10
 
 spread_factor = 1.1
+repulsion_force = 1.2
+collision = True
 
 global_id = -1
 
@@ -67,10 +71,11 @@ class Particle(pygame.sprite.Sprite):
             if distance <= ( self.radius * spread_factor) + ( other.radius * spread_factor):
                 avg_elasticity = (self.elasticity + other.elasticity) / 2
 
-                self.vx = -self.vx * avg_elasticity
-                self.vy = -self.vy * avg_elasticity
-                other.vx = -other.vx * avg_elasticity
-                other.vy = -other.vy * avg_elasticity
+                self.vx = -self.vx * avg_elasticity * repulsion_force
+                self.vy = -self.vy * avg_elasticity * repulsion_force
+                other.vx = -other.vx * avg_elasticity * repulsion_force
+                other.vy = -other.vy * avg_elasticity * repulsion_force
+
 
                 overlap = (( self.radius * spread_factor) + ( other.radius * spread_factor)) - distance
                 if overlap > 0:
@@ -94,8 +99,8 @@ class Particle(pygame.sprite.Sprite):
 
 all_particles = []
 
-for i in range(100):
-    instance = Particle((random.randint(0,800), 0), 1, random.uniform(0.1,0.99), 10)
+for i in range(150):
+    instance = Particle((random.randint(0,800), random.randint(0,600)), 1, random.uniform(0.1,0.99), 10)
     all_particles.append(instance)
 
 run = True
@@ -115,14 +120,30 @@ while run:
         for j in range(i + 1, len(all_particles)):
             p1 = all_particles[i]
             p2 = all_particles[j]
-            p1.handle_collision(p2)
+            p1.fx, p1.fy = 0, 0
+            p2.fx, p2.fy = 0, 0
+
+            compute_gravity(p1, p2, grav_constant)
+            p1.ax = p1.fx / p1.mass
+            p1.ay = p1.fy / p1.mass
+            p2.ax = p2.fx / p2.mass
+            p2.ay = p2.fy / p2.mass
+
+            p1.vx += p1.ax
+            p1.vy += p1.ay
+            p2.vx += p2.ax
+            p2.vy += p2.ay
+
+            if collision:
+                p1.handle_collision(p2)
+
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
-                instance = Particle(event.pos, 1, random.uniform(0.1, 0.99), random.randint(5, 30))
+                instance = Particle(event.pos, 100, random.uniform(0.1, 0.99), random.randint(5, 30))
                 all_particles.append(instance)
 
     pygame.display.flip()
